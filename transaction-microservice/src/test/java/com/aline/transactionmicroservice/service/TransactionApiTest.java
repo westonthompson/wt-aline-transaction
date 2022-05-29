@@ -2,10 +2,12 @@ package com.aline.transactionmicroservice.service;
 
 import com.aline.core.annotation.test.SpringBootUnitTest;
 import com.aline.core.annotation.test.SpringTestProperties;
+import com.aline.core.dto.request.CardRequest;
 import com.aline.core.exception.UnprocessableException;
 import com.aline.core.model.account.Account;
 import com.aline.core.model.account.AccountType;
 import com.aline.core.model.account.CheckingAccount;
+import com.aline.core.model.card.Card;
 import com.aline.core.repository.AccountRepository;
 import com.aline.transactionmicroservice.dto.CreateTransaction;
 import com.aline.transactionmicroservice.dto.Receipt;
@@ -25,6 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
 
 import javax.transaction.Transactional;
+
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +53,9 @@ class TransactionApiTest {
 
     @Autowired
     AccountRepository accountRepository;
+
+    @Autowired
+    CardService cardService;
 
     @Nested
     @DisplayName("Test CREATED state transaction")
@@ -274,6 +281,49 @@ class TransactionApiTest {
 
             Account account = accountRepository.findByAccountNumber(createTransaction.getAccountNumber())
                     .orElse(null);
+
+            assertNotNull(account);
+            assertEquals(AccountType.CHECKING, account.getAccountType());
+            CheckingAccount checkingAccount = (CheckingAccount) account;
+
+            assertEquals(95000, checkingAccount.getBalance());
+            assertEquals(95000, checkingAccount.getAvailableBalance());
+            assertEquals(initialBalance, transaction.getInitialBalance());
+            assertEquals(95000, transaction.getPostedBalance());
+            assertEquals(createTransaction.getAmount(), transaction.getAmount());
+
+        }
+
+        @Test
+        void test_bankAccountBalanceDecreaseCorrectAmount_when_transactionApproved_debitCard() {
+
+            CreateTransaction createTransaction = CreateTransaction.builder()
+                    .amount(5000) // $50.00
+                    .merchantCode("ALINE")
+                    .cardRequest(CardRequest.builder()
+                            .cardNumber("4490246198724138")
+                            .securityCode("123")
+                            .expirationDate(LocalDate.of(2025, 8, 1))
+                            .build())
+                    .type(TransactionType.PURCHASE)
+                    .method(TransactionMethod.DEBIT_CARD)
+                    .build();
+
+            Card card = cardService.getCardByCardRequest(createTransaction.getCardRequest());
+
+            Account preTransactionAccount = card.getAccount();
+
+            assertNotNull(preTransactionAccount);
+            assertEquals(AccountType.CHECKING, preTransactionAccount.getAccountType());
+
+            int initialBalance = preTransactionAccount.getBalance();
+
+            Transaction transaction = transactions.createTransaction(createTransaction);
+
+            Receipt receipt = transactions.processTransaction(transaction);
+            log.info("Receipt: {}", receipt);
+
+            Account account = card.getAccount();
 
             assertNotNull(account);
             assertEquals(AccountType.CHECKING, account.getAccountType());

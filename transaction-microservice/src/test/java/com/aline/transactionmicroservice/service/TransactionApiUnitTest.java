@@ -19,6 +19,7 @@ public class TransactionApiUnitTest {
     TransactionService transactionService;
     AccountService accountService;
     MerchantService merchantService;
+    CardService cardService;
     TransactionRepository repository;
     ModelMapper mapper;
 
@@ -27,11 +28,13 @@ public class TransactionApiUnitTest {
         transactionService = mock(TransactionService.class);
         accountService = mock(AccountService.class);
         merchantService = mock(MerchantService.class);
+        cardService = mock(CardService.class);
         repository = mock(TransactionRepository.class);
         mapper = mock(ModelMapper.class);
         service = new TransactionApi(
                 accountService,
                 merchantService,
+                cardService,
                 repository,
                 mapper
         );
