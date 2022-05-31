@@ -1,5 +1,6 @@
 package com.aline.transactionmicroservice.dto;
 
+import com.aline.core.dto.request.CardRequest;
 import com.aline.core.validation.annotation.AccountNumber;
 import com.aline.transactionmicroservice.model.TransactionMethod;
 import com.aline.transactionmicroservice.model.TransactionStatus;
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.validator.constraints.CreditCardNumber;
 import org.hibernate.validator.constraints.Length;
 
+import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.PositiveOrZero;
 import javax.validation.constraints.Size;
@@ -73,11 +75,11 @@ public class CreateTransaction {
     private String description;
 
     /**
-     * Card number is required if account number
+     * Card request is required if account number
      * is not specified.
      */
-    @CreditCardNumber
-    private String cardNumber;
+    @Valid
+    private CardRequest cardRequest;
 
     /**
      * Account number is required if card number

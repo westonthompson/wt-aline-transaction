@@ -1,11 +1,13 @@
 package com.aline.transactionmicroservice.service;
 
+import com.aline.core.dto.request.CardRequest;
 import com.aline.core.exception.BadRequestException;
 import com.aline.core.exception.UnprocessableException;
 import com.aline.core.exception.notfound.AccountNotFoundException;
 import com.aline.core.model.account.Account;
 import com.aline.core.model.account.AccountType;
 import com.aline.core.model.account.CheckingAccount;
+import com.aline.core.model.card.Card;
 import com.aline.core.security.annotation.RoleIsManagement;
 import com.aline.transactionmicroservice.dto.CreateTransaction;
 import com.aline.transactionmicroservice.dto.MerchantResponse;
@@ -23,6 +25,7 @@ import com.aline.transactionmicroservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.util.Strings;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -49,6 +52,7 @@ import java.time.LocalDateTime;
 public class TransactionApi {
     private final AccountService accountService;
     private final MerchantService merchantService;
+    private final CardService cardService;
     private final TransactionRepository repository;
     private final ModelMapper mapper;
 
@@ -61,14 +65,20 @@ public class TransactionApi {
         Transaction transaction = mapper.map(createTransaction, Transaction.class);
         transaction.setMethod(createTransaction.getMethod());
 
-        if (createTransaction.getCardNumber() == null) {
-            Account account = accountService.getAccountByAccountNumber(createTransaction.getAccountNumber());
-            transaction.setAccount(account);
-            transaction.setInitialBalance(account.getBalance());
+        CardRequest cardRequest = createTransaction.getCardRequest();
+        Account account = null;
+        if (cardRequest != null) {
+            Card card = cardService.getCardByCardRequest(createTransaction.getCardRequest());
+            account = card.getAccount();
         } else {
-            log.error("Card service is not live. Make sure that the service is live and healthy.");
-            throw new BadRequestException("Card services are currently unavailable. Please try again later.");
+            account = accountService.getAccountByAccountNumber(createTransaction.getAccountNumber());
         }
+
+        if (account == null)
+            throw new BadRequestException("No account found for this transaction.");
+
+        transaction.setAccount(account);
+        transaction.setInitialBalance(account.getBalance());
 
         if (isMerchantTransaction(createTransaction.getType())) {
             Merchant merchant = merchantService.checkMerchant(
