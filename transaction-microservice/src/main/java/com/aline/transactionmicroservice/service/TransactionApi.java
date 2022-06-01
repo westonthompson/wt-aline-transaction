@@ -70,6 +70,10 @@ public class TransactionApi {
         if (cardRequest != null) {
             Card card = cardService.getCardByCardRequest(createTransaction.getCardRequest());
             account = card.getAccount();
+            String currentDescription = transaction.getDescription();
+            String cardNumber = card.getCardNumber().substring(card.getCardNumber().length() - 4);
+            String cardDescription = String.format("%s using card ending in %s - %s", transaction.getType().name(), cardNumber, currentDescription);
+            transaction.setDescription(cardDescription);
         } else {
             account = accountService.getAccountByAccountNumber(createTransaction.getAccountNumber());
         }
