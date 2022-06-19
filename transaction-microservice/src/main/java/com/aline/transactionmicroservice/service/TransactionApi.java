@@ -34,6 +34,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import javax.validation.Valid;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -67,9 +68,14 @@ public class TransactionApi {
         transaction.setMethod(createTransaction.getMethod());
 
         CardRequest cardRequest = createTransaction.getCardRequest();
-        Account account = null;
+        Account account;
         if (cardRequest != null) {
             Card card = cardService.getCardByCardRequest(createTransaction.getCardRequest());
+
+            // Check if card is expired
+            if (LocalDate.now().isAfter(card.getExpirationDate()))
+                throw new BadRequestException("Card is expired.");
+
             account = card.getAccount();
             String currentDescription = transaction.getDescription();
             String cardNumber = card.getCardNumber().substring(card.getCardNumber().length() - 4);
@@ -219,11 +225,17 @@ public class TransactionApi {
                 } else if (isDecreasing && !isIncreasing) {
                     postedBalance = checkingAccount.getAvailableBalance() - amount;
                 }
-            } else {
+            } else if (account.getAccountType() == AccountType.SAVINGS) {
                 if (isIncreasing && !isDecreasing) {
                     postedBalance = account.getBalance() + amount;
                 } else if (isDecreasing && !isIncreasing) {
                     postedBalance = account.getBalance() - amount;
+                }
+            } else if (account.getAccountType() == AccountType.CREDIT_CARD) {
+                if (isIncreasing && !isDecreasing) {
+                    postedBalance = account.getBalance() - amount;
+                } else if (isDecreasing && !isIncreasing) {
+                    postedBalance = account.getBalance() + amount;
                 }
             }
             transaction.setPostedBalance(postedBalance);
@@ -247,6 +259,14 @@ public class TransactionApi {
         int balance = transaction.getPostedBalance();
 
         log.info("New posted balance: {}", balance);
+
+        if (transaction.getAccount().getAccountType() == AccountType.CREDIT_CARD) {
+            CreditCardAccount account = (CreditCardAccount) transaction.getAccount();
+
+            if (balance > account.getAvailableCredit() && transaction.isDecreasing()) {
+                denyTransaction(transaction);
+            }
+        }
 
         if (balance < 0 && transaction.isDecreasing()) {
             denyTransaction(transaction);

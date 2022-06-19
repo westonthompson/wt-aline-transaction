@@ -7,7 +7,10 @@ import com.aline.core.exception.UnprocessableException;
 import com.aline.core.model.account.Account;
 import com.aline.core.model.account.AccountType;
 import com.aline.core.model.account.CheckingAccount;
+import com.aline.core.model.account.CreditCardAccount;
 import com.aline.core.model.card.Card;
+import com.aline.core.model.credit.CreditLine;
+import com.aline.core.model.credit.CreditLineType;
 import com.aline.core.repository.AccountRepository;
 import com.aline.transactionmicroservice.dto.CreateTransaction;
 import com.aline.transactionmicroservice.dto.Receipt;
@@ -410,6 +413,104 @@ class TransactionApiTest {
             assertEquals(initialBalance, transaction.getInitialBalance());
             assertEquals(createTransaction.getAmount(), transaction.getAmount());
             assertEquals(initialBalance, transaction.getPostedBalance());
+
+        }
+
+    }
+
+    @Nested
+    @DisplayName("Credit Card Transaction Test")
+    class CreditCardTransactionTest {
+
+        @Test
+        void test_creditCard_purchaseTransaction_approved() {
+            CardRequest cardRequest = CardRequest.builder()
+                    .cardNumber("4929322248222398")
+                    .expirationDate(LocalDate.of(2025, 8, 1))
+                    .securityCode("123")
+                    .build();
+            CreateTransaction createTransaction = CreateTransaction.builder()
+                    .type(TransactionType.PURCHASE)
+                    .method(TransactionMethod.CREDIT_CARD)
+                    .cardRequest(cardRequest)
+                    .merchantCode("ALINE")
+                    .amount(50000)
+                    .build();
+
+            Card card = cardService.getCardByCardRequest(cardRequest);
+            assertNotNull(card);
+
+            Account account = card.getAccount();
+            assertNotNull(account);
+
+            assertTrue(account instanceof CreditCardAccount);
+
+            CreditCardAccount creditCardAccount = (CreditCardAccount) account;
+
+            CreditLine creditLine = creditCardAccount.getCreditLine();
+
+            assertNotNull(creditLine);
+            assertEquals(500000, creditLine.getCreditLimit());
+            assertEquals(CreditLineType.STANDARD, creditLine.getCreditLineType());
+
+            assertEquals(0, account.getBalance());
+
+            Transaction transaction = transactions.createTransaction(createTransaction);
+
+            Receipt receipt = transactions.processTransaction(transaction);
+            log.info("Receipt: {}", receipt);
+            assertEquals(TransactionStatus.APPROVED, receipt.getStatus());
+
+            CreditCardAccount postTransactionAccount = (CreditCardAccount) accountRepository.findByAccountNumber(account.getAccountNumber()).orElse(null);
+            assertNotNull(postTransactionAccount);
+
+            assertEquals(postTransactionAccount, transaction.getAccount());
+            assertEquals(50000, postTransactionAccount.getBalance());
+            assertEquals(450000, postTransactionAccount.getAvailableCredit());
+
+        }
+
+        @Test
+        void test_creditCard_purchaseTransaction_denied() {
+            CardRequest cardRequest = CardRequest.builder()
+                    .cardNumber("4929322248222398")
+                    .expirationDate(LocalDate.of(2025, 8, 1))
+                    .securityCode("123")
+                    .build();
+            CreateTransaction createTransaction = CreateTransaction.builder()
+                    .type(TransactionType.PURCHASE)
+                    .method(TransactionMethod.CREDIT_CARD)
+                    .cardRequest(cardRequest)
+                    .merchantCode("ALINE")
+                    .amount(1000000) // Way over credit limit
+                    .build();
+
+            Card card = cardService.getCardByCardRequest(cardRequest);
+            assertNotNull(card);
+
+            Account account = card.getAccount();
+            assertNotNull(account);
+
+            assertTrue(account instanceof CreditCardAccount);
+
+            CreditCardAccount creditCardAccount = (CreditCardAccount) account;
+
+            CreditLine creditLine = creditCardAccount.getCreditLine();
+
+            assertNotNull(creditLine);
+            assertEquals(500000, creditLine.getCreditLimit());
+            assertEquals(CreditLineType.STANDARD, creditLine.getCreditLineType());
+
+            assertEquals(0, account.getBalance());
+
+            Transaction transaction = transactions.createTransaction(createTransaction);
+
+            Receipt receipt = transactions.processTransaction(transaction);
+            log.info("Receipt: {}", receipt);
+            assertEquals(TransactionStatus.DENIED, receipt.getStatus());
+
+            CreditCardAccount postTransactionAccount = (CreditCardAccount) accountRepository.findByAccountNumber(account.getAccountNumber()).orElse(null);
+            assertNotNull(postTransactionAccount);
 
         }
 
