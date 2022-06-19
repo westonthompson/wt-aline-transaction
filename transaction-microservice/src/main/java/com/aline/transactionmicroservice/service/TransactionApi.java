@@ -7,6 +7,7 @@ import com.aline.core.exception.notfound.AccountNotFoundException;
 import com.aline.core.model.account.Account;
 import com.aline.core.model.account.AccountType;
 import com.aline.core.model.account.CheckingAccount;
+import com.aline.core.model.account.CreditCardAccount;
 import com.aline.core.model.card.Card;
 import com.aline.core.security.annotation.RoleIsManagement;
 import com.aline.transactionmicroservice.dto.CreateTransaction;
@@ -275,10 +276,14 @@ public class TransactionApi {
                 account.increaseBalance(transaction.getAmount());
                 if (account.getAccountType() == AccountType.CHECKING)
                     ((CheckingAccount) account).increaseAvailableBalance(transaction.getAmount());
+                if (account.getAccountType() == AccountType.CREDIT_CARD)
+                    ((CreditCardAccount) account).increaseAvailableCredit(transaction.getAmount());
             } else if (transaction.isDecreasing() && !transaction.isIncreasing()) {
                 account.decreaseBalance(transaction.getAmount());
                 if (account.getAccountType() == AccountType.CHECKING)
                     ((CheckingAccount) account).decreaseAvailableBalance(transaction.getAmount());
+                if (account.getAccountType() == AccountType.CREDIT_CARD)
+                    ((CreditCardAccount) account).decreaseAvailableCredit(transaction.getAmount());
             }
         }
         log.info("Transaction {} {}", transaction.getId(), transaction.getStatus());
