@@ -11,11 +11,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.validator.constraints.CreditCardNumber;
 import org.hibernate.validator.constraints.Length;
+import org.springframework.lang.Nullable;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.PositiveOrZero;
 import javax.validation.constraints.Size;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Create a TransactionRequest to make a transaction
@@ -43,6 +46,9 @@ public class CreateTransaction {
      */
     @NotNull(message = "Transaction method is required.")
     private TransactionMethod method;
+
+    @Nullable
+    private LocalDateTime date;
 
     /**
      * The amount of the transaction in cents.

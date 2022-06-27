@@ -186,6 +186,39 @@ class TransactionApiTest {
 
             assertNull(repository.findById(transaction.getId()).orElse(null));
         }
+
+        @Test
+        void test_createsTransactionWithCorrectProperties_and_customDate_dateIsCorrect() {
+
+            CreateTransaction createTransaction = CreateTransaction.builder()
+                    .amount(10000)
+                    .accountNumber("0011011234")
+                    .type(TransactionType.PURCHASE)
+                    .merchantCode("NEWME")
+                    .merchantName("New Merchant")
+                    .method(TransactionMethod.ACH)
+                    .date(LocalDate.of(2022, 1, 1).atStartOfDay())
+                    .build();
+
+            Transaction transaction = transactions.createTransaction(createTransaction);
+            Account account = transaction.getAccount();
+            Merchant merchant = transaction.getMerchant();
+
+            // Account balance not affected
+            assertEquals(100000, account.getBalance());
+
+            // Merchant and account information are correct
+            assertEquals("0011011234", account.getAccountNumber());
+            assertEquals("NEWME", merchant.getCode());
+            assertEquals("New Merchant", merchant.getName());
+
+            assertEquals(TransactionType.PURCHASE, transaction.getType());
+            assertFalse(transaction.isIncreasing());
+            assertTrue(transaction.isDecreasing());
+            assertTrue(transaction.isMerchantTransaction());
+            assertEquals(LocalDate.of(2022, 1, 1).atStartOfDay(), transaction.getDate());
+
+        }
     }
 
     @Nested

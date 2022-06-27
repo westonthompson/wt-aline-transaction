@@ -102,7 +102,8 @@ public class TransactionApi {
 
         transaction.setStatus(TransactionStatus.PENDING); // Transactions will initially be pending when created
         transaction.setState(TransactionState.CREATED);
-        transaction.setDate(LocalDateTime.now());
+        if (transaction.getDate() == null)
+            transaction.setDate(LocalDateTime.now());
         log.info("Transaction created and set to PENDING at {}", transaction.getDate());
         return repository.save(transaction);
     }
