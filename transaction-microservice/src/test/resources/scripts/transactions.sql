@@ -45,17 +45,31 @@ insert into account (account_type, id, account_number, balance, status, availabl
                      primary_account_holder_id)
 values ('CHECKING', 3, '0011011235', 100000000, 'ACTIVE', 100000000, 2);
 
+insert into credit_line (id, apr, credit_limit, credit_line_type, start_date, status, min_payment)
+    values (1, 0, 500000, 'STANDARD', '2022-05-01', 'OPEN', 3000);
+
+insert into account (account_type, id, account_number, balance, status, available_credit,
+                     primary_account_holder_id, credit_line_id)
+values ('CREDIT_CARD', 4, '0013031236', 0, 'ACTIVE', 500000, 2, 1);
+
 insert into account_holder (member_id, account_id)
 values (1, 1),
        (1, 2),
        (2, 3),
+       (2, 4),
        (3, 3);
 
 insert into card (id, card_number, card_status, card_type, expiration_date, security_code, account_id, card_holder_id)
 values (1, '4490246198724138', 'ACTIVE', 'DEBIT', '2025-08-01', '123', 1, 1);
 
+insert into card (id, card_number, card_status, card_type, expiration_date, security_code, account_id, card_holder_id)
+values (2, '4929322248222398', 'ACTIVE', 'CREDIT', '2025-08-01', '123', 4, 2);
+
 insert into card_holder (member_id, card_id)
 values (1, 1);
+
+insert into card_holder (member_id, card_id)
+values (2, 2);
 
 insert into transaction (id, type, method, amount, date, account_id, initial_balance, posted_balance, status, merchant_code, state, description)
 values (1, 'WITHDRAWAL', 'ACH', 10000, '2021-08-01', 1, 100000, 90000, 'APPROVED', 'ALINE', 'POSTED', 'Batman is Bruce Wayne.');

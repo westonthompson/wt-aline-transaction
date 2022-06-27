@@ -7,6 +7,7 @@ import com.aline.core.exception.notfound.AccountNotFoundException;
 import com.aline.core.model.account.Account;
 import com.aline.core.model.account.AccountType;
 import com.aline.core.model.account.CheckingAccount;
+import com.aline.core.model.account.CreditCardAccount;
 import com.aline.core.model.card.Card;
 import com.aline.core.security.annotation.RoleIsManagement;
 import com.aline.transactionmicroservice.dto.CreateTransaction;
@@ -33,6 +34,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import javax.validation.Valid;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -66,9 +68,14 @@ public class TransactionApi {
         transaction.setMethod(createTransaction.getMethod());
 
         CardRequest cardRequest = createTransaction.getCardRequest();
-        Account account = null;
+        Account account;
         if (cardRequest != null) {
             Card card = cardService.getCardByCardRequest(createTransaction.getCardRequest());
+
+            // Check if card is expired
+            if (LocalDate.now().isAfter(card.getExpirationDate()))
+                throw new BadRequestException("Card is expired.");
+
             account = card.getAccount();
             String currentDescription = transaction.getDescription();
             String cardNumber = card.getCardNumber().substring(card.getCardNumber().length() - 4);
@@ -95,7 +102,8 @@ public class TransactionApi {
 
         transaction.setStatus(TransactionStatus.PENDING); // Transactions will initially be pending when created
         transaction.setState(TransactionState.CREATED);
-        transaction.setDate(LocalDateTime.now());
+        if (transaction.getDate() == null)
+            transaction.setDate(LocalDateTime.now());
         log.info("Transaction created and set to PENDING at {}", transaction.getDate());
         return repository.save(transaction);
     }
@@ -218,11 +226,17 @@ public class TransactionApi {
                 } else if (isDecreasing && !isIncreasing) {
                     postedBalance = checkingAccount.getAvailableBalance() - amount;
                 }
-            } else {
+            } else if (account.getAccountType() == AccountType.SAVINGS) {
                 if (isIncreasing && !isDecreasing) {
                     postedBalance = account.getBalance() + amount;
                 } else if (isDecreasing && !isIncreasing) {
                     postedBalance = account.getBalance() - amount;
+                }
+            } else if (account.getAccountType() == AccountType.CREDIT_CARD) {
+                if (isIncreasing && !isDecreasing) {
+                    postedBalance = account.getBalance() - amount;
+                } else if (isDecreasing && !isIncreasing) {
+                    postedBalance = account.getBalance() + amount;
                 }
             }
             transaction.setPostedBalance(postedBalance);
@@ -246,6 +260,14 @@ public class TransactionApi {
         int balance = transaction.getPostedBalance();
 
         log.info("New posted balance: {}", balance);
+
+        if (transaction.getAccount().getAccountType() == AccountType.CREDIT_CARD) {
+            CreditCardAccount account = (CreditCardAccount) transaction.getAccount();
+
+            if (balance > account.getAvailableCredit() && transaction.isDecreasing()) {
+                denyTransaction(transaction);
+            }
+        }
 
         if (balance < 0 && transaction.isDecreasing()) {
             denyTransaction(transaction);
@@ -275,10 +297,14 @@ public class TransactionApi {
                 account.increaseBalance(transaction.getAmount());
                 if (account.getAccountType() == AccountType.CHECKING)
                     ((CheckingAccount) account).increaseAvailableBalance(transaction.getAmount());
+                if (account.getAccountType() == AccountType.CREDIT_CARD)
+                    ((CreditCardAccount) account).increaseAvailableCredit(transaction.getAmount());
             } else if (transaction.isDecreasing() && !transaction.isIncreasing()) {
                 account.decreaseBalance(transaction.getAmount());
                 if (account.getAccountType() == AccountType.CHECKING)
                     ((CheckingAccount) account).decreaseAvailableBalance(transaction.getAmount());
+                if (account.getAccountType() == AccountType.CREDIT_CARD)
+                    ((CreditCardAccount) account).decreaseAvailableCredit(transaction.getAmount());
             }
         }
         log.info("Transaction {} {}", transaction.getId(), transaction.getStatus());
