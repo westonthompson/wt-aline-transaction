@@ -353,6 +353,7 @@ public class TransactionApi {
                 .amount(request.getAmount())
                 .description(outDescription)
                 .method(TransactionMethod.APP)
+                .date(request.getDate())
                 .build();
 
         CreateTransaction transferIn = CreateTransaction.builder()
@@ -361,6 +362,7 @@ public class TransactionApi {
                 .amount(request.getAmount())
                 .description(inDescription)
                 .method(TransactionMethod.APP)
+                .date(request.getDate())
                 .build();
 
         Transaction outTransaction = createTransaction(transferOut);
